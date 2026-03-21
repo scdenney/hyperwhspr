@@ -5,22 +5,10 @@ Voice-to-text on Omarchy/Hyprland using [hyprwhspr](https://github.com/goodroot/
 ## Current setup
 
 - **Version:** hyprwhspr v1.19.0
-- **Model:** nemo-canary-1b-v2 (1B params, fp32, no quantization)
-- **Backend:** onnx-asr (GPU)
-- **Hardware:** RTX 3060 Ti, ~5.7GB VRAM in use
+- **Backend:** OpenAI REST API — GPT-4o Transcribe
 - **Shortcut:** SUPER+ALT+D (toggle mode)
-- **Threads:** 8, VAD on, filler word filtering on, mic OSD on
-
-## CUDA / GPU notes
-
-System has CUDA 13, but hyprwhspr's onnx-asr requires CUDA 12. Solved by:
-- Installing CUDA 12 pip packages (`nvidia-cublas-cu12`, `nvidia-cudnn-cu12`, etc.) into the hyprwhspr venv
-- Adding them to `LD_LIBRARY_PATH` in the systemd user service (see `config/hyprwhspr.service`)
-
-The `LD_LIBRARY_PATH` in the service points to:
-```
-~/.local/share/hyprwhspr/venv/lib/python3.14/site-packages/nvidia/*/lib
-```
+- **Threads:** 8, filler word filtering on, mic OSD on
+- **API key:** stored in `~/.local/share/hyprwhspr/credentials` (not in git)
 
 ## Files
 
@@ -28,8 +16,6 @@ The `LD_LIBRARY_PATH` in the service points to:
 |------|-------------|
 | `config/config.json` | Main hyprwhspr config (copy of `~/.config/hyprwhspr/config.json`) |
 | `config/hyprwhspr.service` | Systemd user service (copy of `~/.config/systemd/user/hyprwhspr.service`) |
-
-> Note: `config.json` has a `"model": "base.en"` field — this is a legacy whisper.cpp field and is ignored. The active model is set via `"onnx_asr_model": "nemo-canary-1b-v2"`.
 
 ## Service management
 
@@ -40,8 +26,48 @@ systemctl --user stop hyprwhspr
 journalctl --user -u hyprwhspr -f   # live logs
 ```
 
+## Switching backends
+
+### Current: OpenAI GPT-4o Transcribe (cloud)
+
+```json
+{
+  "transcription_backend": "rest-api",
+  "rest_endpoint_url": "https://api.openai.com/v1/audio/transcriptions",
+  "rest_api_provider": "openai",
+  "rest_api_key": null,
+  "rest_headers": {},
+  "rest_body": {"model": "gpt-4o-transcribe"}
+}
+```
+
+API key stored via: `~/.local/share/hyprwhspr/credentials`
+
+### Previous: Local onnx-asr (GPU, nemo-canary-1b-v2)
+
+~5.7GB VRAM, no internet required, instant response, no cost.
+
+```json
+{
+  "transcription_backend": "onnx-asr",
+  "rest_endpoint_url": null,
+  "rest_api_provider": null,
+  "rest_api_key": null,
+  "rest_headers": {},
+  "rest_body": {},
+  "onnx_asr_model": "nemo-canary-1b-v2",
+  "onnx_asr_quantization": null,
+  "onnx_asr_use_vad": true
+}
+```
+
+Requires `LD_LIBRARY_PATH` in service pointing to CUDA 12 pip packages in venv (system has CUDA 13 — see `config/hyprwhspr.service`).
+
+After any config change: `systemctl --user restart hyprwhspr`
+
 ## Known issues / fixes
 
 | Date | Issue | Fix |
 |------|-------|-----|
 | 2026-03-19 | Mic OSD stale daemon | `systemctl --user restart hyprwhspr` |
+| 2026-03-21 | Switched to GPT-4o Transcribe | Working as of switch |
