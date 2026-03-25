@@ -29,7 +29,7 @@
     "uh huh"
   ],
   "symbol_replacements": true,
-  "whisper_prompt": "Transcribe with proper capitalization, including sentence beginnings, proper nouns, titles, and standard English capitalization rules.",
+  "whisper_prompt": "Transcribe with proper capitalization, punctuation, and grammar. Clean up false starts, repetitions, and run-on sentences. Produce well-structured, readable text while preserving the speaker's meaning and tone.",
   "clipboard_behavior": false,
   "clipboard_clear_delay": 15.0,
   "paste_mode": "ctrl_shift",
