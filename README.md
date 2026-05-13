@@ -77,4 +77,4 @@ Vocabulary and style preferences live in `~/.config/hyprwhspr/vocab.md`. Run `/h
 |------|-------|-----|
 | 2026-03-19 | Mic OSD stale daemon | `systemctl --user restart hyprwhspr` |
 | 2026-03-21 | Switched to GPT-4o Transcribe | Working as of switch |
-| 2026-05-13 | Omarchy update broke mic OSD and wl-copy (WAYLAND_DISPLAY not inherited by service) | Added `PassEnvironment=WAYLAND_DISPLAY DISPLAY` to service file |
+| 2026-05-13 | Omarchy update broke mic OSD and wl-copy (WAYLAND_DISPLAY not inherited by service) | Added `PassEnvironment=WAYLAND_DISPLAY DISPLAY` + ExecStartPre guard that waits for UWSM to export WAYLAND_DISPLAY into the systemd user env before service starts |
