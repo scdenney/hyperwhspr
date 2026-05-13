@@ -9,8 +9,10 @@ Wants=pipewire.service
 
 [Service]
 Type=simple
-# Wait for Wayland compositor - check for socket file directly since systemd
-# services don't inherit WAYLAND_DISPLAY from the graphical session
+# Pass Wayland/X11 display env from the user session manager so wl-copy,
+# wl-paste, and the GTK4 mic-osd overlay can connect to the compositor.
+PassEnvironment=WAYLAND_DISPLAY DISPLAY
+# Wait for Wayland compositor socket to appear before starting
 ExecStartPre=/bin/bash -c 'for i in $(seq 1 30); do ls /run/user/$(id -u)/wayland-* >/dev/null 2>&1 && exit 0; sleep 0.5; done; echo "Warning: Wayland socket not found after 15s"'
 # Clean stale mic-osd PID file so the runner spawns a fresh daemon
 # instead of trying to signal a PID that was reused by another process

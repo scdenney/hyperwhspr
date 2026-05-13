@@ -71,3 +71,4 @@ After any config change: `systemctl --user restart hyprwhspr`
 |------|-------|-----|
 | 2026-03-19 | Mic OSD stale daemon | `systemctl --user restart hyprwhspr` |
 | 2026-03-21 | Switched to GPT-4o Transcribe | Working as of switch |
+| 2026-05-13 | Omarchy update broke mic OSD and wl-copy (WAYLAND_DISPLAY not inherited by service) | Added `PassEnvironment=WAYLAND_DISPLAY DISPLAY` to service file |
