@@ -65,6 +65,12 @@ Requires `LD_LIBRARY_PATH` in service pointing to CUDA 12 pip packages in venv (
 
 After any config change: `systemctl --user restart hyprwhspr`
 
+## Post-transcription cleanup
+
+Each dictation is passed through `~/.config/hyprwhspr/cleanup.py` after transcription. It calls GPT-4.1-mini to fix punctuation, capitalization, and grammar, then logs the raw + cleaned pair to `~/.config/hyprwhspr/cleanup_log.jsonl`.
+
+Vocabulary and style preferences live in `~/.config/hyprwhspr/vocab.md`. Run `/hypr-calibrate` in Claude Code to review recent logs and update the vocab file interactively.
+
 ## Known issues / fixes
 
 | Date | Issue | Fix |
