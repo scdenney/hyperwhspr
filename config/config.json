@@ -29,7 +29,7 @@
     "uh huh"
   ],
   "symbol_replacements": true,
-  "post_transcription_hook": "/home/buddleman/.config/hyprwhspr/cleanup.py",
+  "post_transcription_hook": "/home/YOUR_USER/.config/hyprwhspr/cleanup.py",
   "whisper_prompt": "Transcribe accurately. The speaker is an assistant professor in programming research and computer science.",
   "clipboard_behavior": false,
   "clipboard_clear_delay": 15.0,

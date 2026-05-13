@@ -1,0 +1,14 @@
+# Local secrets
+credentials
+*.env
+
+# hyprwhspr local runtime output
+cleanup_log.jsonl
+*.sock
+mic_osd.pid
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/

@@ -16,7 +16,7 @@ PassEnvironment=WAYLAND_DISPLAY DISPLAY
 ExecStartPre=/bin/bash -c 'for i in $(seq 1 30); do ls /run/user/$(id -u)/wayland-* >/dev/null 2>&1 && exit 0; sleep 0.5; done; echo "Warning: Wayland socket not found after 15s"'
 # Wait for UWSM to export WAYLAND_DISPLAY into the systemd user environment.
 # The socket may exist before UWSM calls import-environment, so PassEnvironment
-# would pass an empty value without this guard — leaving subprocesses (mic-osd,
+# would pass an empty value without this guard, leaving subprocesses (mic-osd,
 # wl-copy) unable to connect to the compositor.
 ExecStartPre=/bin/bash -c 'for i in $(seq 1 60); do systemctl --user show-environment 2>/dev/null | grep -q "^WAYLAND_DISPLAY=" && exit 0; sleep 0.5; done; echo "Warning: WAYLAND_DISPLAY not found in session env after 30s"'
 # Clean stale mic-osd PID file so the runner spawns a fresh daemon
@@ -27,7 +27,12 @@ ExecStart=/usr/lib/hyprwhspr/bin/hyprwhspr
 ExecStopPost=/bin/bash -c 'pkill -9 -f "hyprwhspr-virtual-keyboard" 2>/dev/null || true'
 Environment=HYPRWHSPR_ROOT=/usr/lib/hyprwhspr
 Environment=PYTHONUNBUFFERED=1
-Environment=LD_LIBRARY_PATH=/home/buddleman/.local/share/hyprwhspr/venv/lib/python3.14/site-packages/nvidia/cublas/lib:/home/buddleman/.local/share/hyprwhspr/venv/lib/python3.14/site-packages/nvidia/cudnn/lib:/home/buddleman/.local/share/hyprwhspr/venv/lib/python3.14/site-packages/nvidia/cufft/lib:/home/buddleman/.local/share/hyprwhspr/venv/lib/python3.14/site-packages/nvidia/cuda_runtime/lib:/home/buddleman/.local/share/hyprwhspr/venv/lib/python3.14/site-packages/nvidia/cuda_nvrtc/lib:/home/buddleman/.local/share/hyprwhspr/venv/lib/python3.14/site-packages/nvidia/cusparse/lib:/home/buddleman/.local/share/hyprwhspr/venv/lib/python3.14/site-packages/nvidia/cusolver/lib:/home/buddleman/.local/share/hyprwhspr/venv/lib/python3.14/site-packages/nvidia/curand/lib:/home/buddleman/.local/share/hyprwhspr/venv/lib/python3.14/site-packages/nvidia/nvjitlink/lib:/home/buddleman/.local/share/hyprwhspr/venv/lib/python3.14/site-packages/nvidia/nccl/lib:/opt/cuda/lib64
+# Optional: point cleanup.py at OpenAI or a local OpenAI-compatible server.
+Environment=HYPRWHSPR_CLEANUP_MODEL=gpt-4.1-mini
+Environment=HYPRWHSPR_LLM_API_URL=https://api.openai.com/v1/chat/completions
+# Optional for local ONNX ASR with CUDA pip libraries. Replace YOUR_USER and
+# python3.14 with the paths used by your hyprwhspr virtual environment.
+# Environment=LD_LIBRARY_PATH=/home/YOUR_USER/.local/share/hyprwhspr/venv/lib/python3.14/site-packages/nvidia/cublas/lib:/home/YOUR_USER/.local/share/hyprwhspr/venv/lib/python3.14/site-packages/nvidia/cudnn/lib:/home/YOUR_USER/.local/share/hyprwhspr/venv/lib/python3.14/site-packages/nvidia/cufft/lib:/home/YOUR_USER/.local/share/hyprwhspr/venv/lib/python3.14/site-packages/nvidia/cuda_runtime/lib:/home/YOUR_USER/.local/share/hyprwhspr/venv/lib/python3.14/site-packages/nvidia/cuda_nvrtc/lib:/home/YOUR_USER/.local/share/hyprwhspr/venv/lib/python3.14/site-packages/nvidia/cusparse/lib:/home/YOUR_USER/.local/share/hyprwhspr/venv/lib/python3.14/site-packages/nvidia/cusolver/lib:/home/YOUR_USER/.local/share/hyprwhspr/venv/lib/python3.14/site-packages/nvidia/curand/lib:/home/YOUR_USER/.local/share/hyprwhspr/venv/lib/python3.14/site-packages/nvidia/nvjitlink/lib:/home/YOUR_USER/.local/share/hyprwhspr/venv/lib/python3.14/site-packages/nvidia/nccl/lib:/opt/cuda/lib64
 Restart=on-failure
 # Give kernel time to release device grabs after stop
 RestartSec=2
