@@ -6,6 +6,11 @@ package. It is a reproducible configuration pattern: keyboard-triggered voice
 recording, transcription, post-transcription LLM cleanup, and a calibration
 loop for improving vocabulary, style, and written prosody over time.
 
+> **macOS counterpart:** [`scdenney/macwhspr`](https://github.com/scdenney/macwhspr)
+> ports this pipeline to Mac. Same `cleanup.py` prompt and `vocab.md` format,
+> same `/hypr-calibrate` loop; Karabiner-Elements + Hammerspoon + a Python
+> launchd daemon replace the Linux pieces. Triggered by the Globe/Fn key.
+
 The current version of this setup uses the OpenAI API for both transcription and
 cleanup:
 
