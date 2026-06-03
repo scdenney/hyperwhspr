@@ -57,6 +57,12 @@ _STOPWORDS = {
     'be', 'as', 'was', 'were', 'been', 'has', 'have', 'he', 'she', 'they',
 }
 
+# gpt-4o-transcribe can hallucinate old prompt text even after the prompt is changed.
+# Keep previous prompts here so stale hallucinations are still caught.
+_LEGACY_PROMPTS = [
+    'Transcribe accurately. The speaker is an assistant professor in programming research and computer science.',
+]
+
 
 def _content_words(text):
     return {w for w in re.findall(r'\w+', text.lower()) if w not in _STOPWORDS}
@@ -64,10 +70,13 @@ def _content_words(text):
 
 def looks_like_prompt_hallucination(raw: str, prompt: str) -> bool:
     raw_cw = _content_words(raw)
-    prompt_cw = _content_words(prompt)
-    if not raw_cw or not prompt_cw:
+    if not raw_cw:
         return False
-    return len(raw_cw & prompt_cw) / len(raw_cw) > 0.6
+    for p in [prompt] + _LEGACY_PROMPTS:
+        p_cw = _content_words(p)
+        if p_cw and len(raw_cw & p_cw) / len(raw_cw) > 0.6:
+            return True
+    return False
 
 
 def api_key():
