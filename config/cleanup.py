@@ -8,6 +8,7 @@ Logs (raw, cleaned) pairs to cleanup_log.jsonl for /hypr-calibrate sessions.
 
 import json
 import os
+import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -48,6 +49,25 @@ def configured_whisper_prompt():
         return json.loads(CONFIG_FILE.read_text()).get('whisper_prompt', '')
     except Exception:
         return ''
+
+
+_STOPWORDS = {
+    'a', 'an', 'the', 'is', 'are', 'in', 'on', 'at', 'to', 'for', 'of',
+    'and', 'or', 'but', 'with', 'by', 'from', 'this', 'that', 'it', 'its',
+    'be', 'as', 'was', 'were', 'been', 'has', 'have', 'he', 'she', 'they',
+}
+
+
+def _content_words(text):
+    return {w for w in re.findall(r'\w+', text.lower()) if w not in _STOPWORDS}
+
+
+def looks_like_prompt_hallucination(raw: str, prompt: str) -> bool:
+    raw_cw = _content_words(raw)
+    prompt_cw = _content_words(prompt)
+    if not raw_cw or not prompt_cw:
+        return False
+    return len(raw_cw & prompt_cw) / len(raw_cw) > 0.6
 
 
 def api_key():
@@ -113,7 +133,7 @@ def main():
     if not raw:
         return
     prompt = configured_whisper_prompt()
-    if prompt and raw.lower() in prompt.lower():
+    if prompt and looks_like_prompt_hallucination(raw, prompt):
         return
     cleaned = clean(raw)
     print(cleaned, end='')
