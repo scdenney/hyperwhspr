@@ -30,7 +30,7 @@
   ],
   "symbol_replacements": true,
   "post_transcription_hook": "/home/YOUR_USER/.config/hyprwhspr/cleanup.py",
-  "whisper_prompt": "Transcribe accurately. The speaker is an assistant professor in programming research and computer science.",
+  "whisper_prompt": "Transcribe accurately. The speaker is an assistant professor of international relations and Korean studies at Leiden University.",
   "clipboard_behavior": false,
   "clipboard_clear_delay": 15.0,
   "paste_mode": "ctrl_shift",
