@@ -15,12 +15,17 @@ The current version of this setup uses the OpenAI API for both transcription and
 cleanup:
 
 - hyprwhspr records audio from the microphone.
-- OpenAI `gpt-4o-transcribe` converts speech to text through
-  `/v1/audio/transcriptions`.
+- OpenAI `gpt-realtime-whisper` transcribes speech to text over the Realtime
+  WebSocket API (`wss://api.openai.com/v1/realtime?intent=transcription`) as
+  audio streams in, rather than uploading a finished audio file after
+  recording stops.
 - A post-transcription hook sends the raw transcript to an LLM cleanup prompt.
 - The hook logs raw and cleaned text pairs so the setup can be calibrated later.
 - A Claude Code command, `/hypr-calibrate`, reviews those logs and updates the
   vocabulary/style file.
+
+The batch REST endpoint (`gpt-4o-transcribe` via `/v1/audio/transcriptions`)
+remains a supported fallback — see [OpenAI API setup](#openai-api-setup) below.
 
 The same structure can be run more locally. hyprwhspr supports an `onnx-asr`
 backend, and the cleanup hook can point at a local OpenAI-compatible chat
@@ -42,7 +47,8 @@ the transcription backend and the cleanup LLM need to be local.
 
 | Setup | Positives | Trade-offs |
 | --- | --- | --- |
-| OpenAI transcription + OpenAI cleanup | Strong transcription quality, simple setup, no local GPU requirement, generally fast enough for daily dictation | Sends audio/text to an API, has usage cost, depends on network/API availability |
+| OpenAI realtime transcription (`gpt-realtime-whisper`) + OpenAI cleanup | Lowest end-to-end latency (transcription streams while recording, mostly done by the time you stop talking), strong quality, no local GPU requirement | Sends audio/text to an API, ~3x the per-minute cost of the batch endpoint ($0.017/min vs $0.006/min), depends on network/API availability, WebSocket adds a bit more that can go wrong than a single REST call |
+| OpenAI batch transcription (`gpt-4o-transcribe`) + OpenAI cleanup | Strong transcription quality, simplest setup (plain REST call), no local GPU requirement | Sends audio/text to an API, has usage cost, depends on network/API availability, full audio file uploads only after recording stops |
 | Local transcription + OpenAI cleanup | Keeps raw audio local, reduces API use, keeps high-quality cleanup | Cleaned transcript still leaves the machine, local ASR needs compatible hardware and model setup |
 | Local transcription + local cleanup LLM | Best privacy, no API cost, full local control | More setup, more maintenance, higher hardware requirements, possible latency/speed trade-offs, local models may need prompt tuning |
 
@@ -106,9 +112,9 @@ journalctl --user -u hyprwhspr -f
 
 ## OpenAI API setup
 
-The example config uses OpenAI's speech-to-text endpoint with
-`gpt-4o-transcribe`. OpenAI's audio docs describe the transcription endpoint and
-the supported transcription models:
+The example config uses OpenAI's Realtime WebSocket transcription model,
+`gpt-realtime-whisper`. OpenAI's audio docs describe the transcription
+endpoints and the supported transcription models:
 <https://platform.openai.com/docs/guides/speech-to-text>.
 
 Store your API key outside git:
@@ -120,7 +126,31 @@ printf '{"openai":"YOUR_OPENAI_API_KEY"}\n' > ~/.local/share/hyprwhspr/credentia
 chmod 600 ~/.local/share/hyprwhspr/credentials
 ```
 
+The same credentials file is used for both the `rest-api` and `realtime-ws`
+backends (the key is looked up by provider name, `openai`, not by backend).
+
 The relevant hyprwhspr config block is:
+
+```json
+{
+  "transcription_backend": "realtime-ws",
+  "websocket_provider": "openai",
+  "websocket_model": "gpt-realtime-whisper",
+  "websocket_url": null,
+  "realtime_mode": "transcribe"
+}
+```
+
+`whisper_prompt` (vocabulary/domain biasing) still applies under
+`realtime-ws` — it is passed as the Realtime session's `instructions` instead
+of the REST `prompt` field. `gpt-realtime-whisper` only supports
+`realtime_mode: "transcribe"`.
+
+### Batch REST fallback
+
+The older batch endpoint (`gpt-4o-transcribe` via `/v1/audio/transcriptions`)
+is still supported and can be simpler to reason about if the WebSocket
+backend causes problems on a given network:
 
 ```json
 {
@@ -132,6 +162,11 @@ The relevant hyprwhspr config block is:
   "rest_body": {"model": "gpt-4o-transcribe"}
 }
 ```
+
+`gpt-4o-mini-transcribe` is a cheaper, lower-latency alternative on the same
+REST path, at a documented accuracy trade-off versus `gpt-4o-transcribe`.
+
+### Cleanup model
 
 The cleanup hook defaults to `gpt-4.1-mini` through the OpenAI Chat Completions
 API. Install its Python dependency in the environment used by hyprwhspr:
@@ -248,6 +283,7 @@ the amount of cleanup the model should apply.
 | 2026-03-19 | Mic OSD stale daemon | `systemctl --user restart hyprwhspr` |
 | 2026-03-21 | Switched to GPT-4o Transcribe | Working as of switch |
 | 2026-05-13 | Omarchy update broke mic OSD and `wl-copy` because `WAYLAND_DISPLAY` was not inherited by the service | Added `PassEnvironment=WAYLAND_DISPLAY DISPLAY` and an `ExecStartPre` guard that waits for UWSM to export `WAYLAND_DISPLAY` into the systemd user environment |
+| 2026-07-13 | Evaluated newer OpenAI voice models; switched to realtime streaming transcription | Switched `transcription_backend` from `rest-api` to `realtime-ws` with `websocket_provider: "openai"`, `websocket_model: "gpt-realtime-whisper"`. Verified end to end: WebSocket connects on service start, transcript returned ~1s after recording stops, cleanup hook and `whisper_prompt` (now sent as realtime `instructions`) unaffected. Batch `gpt-4o-transcribe` REST config kept documented as a fallback |
 
 ## Security notes
 
