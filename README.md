@@ -141,10 +141,17 @@ The relevant hyprwhspr config block is:
 }
 ```
 
-`whisper_prompt` (vocabulary/domain biasing) still applies under
-`realtime-ws` — it is passed as the Realtime session's `instructions` instead
-of the REST `prompt` field. `gpt-realtime-whisper` only supports
-`realtime_mode: "transcribe"`.
+`whisper_prompt` does **not** apply under `realtime-ws` with
+`gpt-realtime-whisper` — OpenAI's Realtime transcription sessions do not
+support a `prompt`/vocabulary-steering field for this model (confirmed in
+OpenAI's Realtime transcription guide: "For `gpt-realtime-whisper` in GA
+Realtime sessions, `prompt` is not supported"). hyprwhspr builds an
+`instructions` string from `whisper_prompt` and passes it to the client, but
+`_send_session_update()` only includes `instructions` in the codebase's
+`converse` (voice-to-AI) mode, not `transcribe` mode — so for our
+`realtime_mode: "transcribe"` setup it is silently unused. Domain vocabulary
+correction still happens downstream in the `cleanup.py` hook via `vocab.md`.
+`gpt-realtime-whisper` only supports `realtime_mode: "transcribe"`.
 
 ### Batch REST fallback
 
@@ -283,7 +290,8 @@ the amount of cleanup the model should apply.
 | 2026-03-19 | Mic OSD stale daemon | `systemctl --user restart hyprwhspr` |
 | 2026-03-21 | Switched to GPT-4o Transcribe | Working as of switch |
 | 2026-05-13 | Omarchy update broke mic OSD and `wl-copy` because `WAYLAND_DISPLAY` was not inherited by the service | Added `PassEnvironment=WAYLAND_DISPLAY DISPLAY` and an `ExecStartPre` guard that waits for UWSM to export `WAYLAND_DISPLAY` into the systemd user environment |
-| 2026-07-13 | Evaluated newer OpenAI voice models; switched to realtime streaming transcription | Switched `transcription_backend` from `rest-api` to `realtime-ws` with `websocket_provider: "openai"`, `websocket_model: "gpt-realtime-whisper"`. Verified end to end: WebSocket connects on service start, transcript returned ~1s after recording stops, cleanup hook and `whisper_prompt` (now sent as realtime `instructions`) unaffected. Batch `gpt-4o-transcribe` REST config kept documented as a fallback |
+| 2026-07-13 | Evaluated newer OpenAI voice models; switched to realtime streaming transcription | Switched `transcription_backend` from `rest-api` to `realtime-ws` with `websocket_provider: "openai"`, `websocket_model: "gpt-realtime-whisper"`. Verified end to end: WebSocket connects on service start, transcript returned ~1s after recording stops, cleanup hook unaffected. Batch `gpt-4o-transcribe` REST config kept documented as a fallback |
+| 2026-07-13 | Corrected inaccurate claim that `whisper_prompt` still applies under `realtime-ws` | Confirmed via source (`realtime_client.py`) and OpenAI's Realtime transcription guide that `gpt-realtime-whisper` does not support prompt/vocabulary steering at all in GA Realtime sessions; hyprwhspr builds the `instructions` string but never sends it in `transcribe` mode. Vocabulary correction now relies solely on the `cleanup.py` + `vocab.md` step |
 
 ## Security notes
 
