@@ -1,15 +1,27 @@
-# hyperwhspr local voice setup
+# hyperwhspr
 
-This repository documents a local voice-to-text setup for Linux/Hyprland using
-[hyprwhspr](https://github.com/goodroot/hyprwhspr). It is not an application or
-package. It is a reproducible configuration pattern: keyboard-triggered voice
-recording, transcription, post-transcription LLM cleanup, and a calibration
-loop for improving vocabulary, style, and written prosody over time.
+[![platform](https://img.shields.io/badge/platform-Linux%20%2F%20Hyprland-FCC624?logo=linux&logoColor=black)](https://hypr.land)
+[![upstream](https://img.shields.io/badge/upstream-hyprwhspr-8A2BE2)](https://github.com/goodroot/hyprwhspr)
+[![transcription](https://img.shields.io/badge/transcription-gpt--realtime--whisper-111111?logo=openai&logoColor=white)](https://platform.openai.com/docs/guides/speech-to-text)
+[![updated](https://img.shields.io/badge/updated-July%202026-green)](https://github.com/scdenney/hyperwhspr/commits/master)
+[![macOS counterpart](https://img.shields.io/badge/macOS%20counterpart-macwhspr-lightgrey?logo=apple)](https://github.com/scdenney/macwhspr)
+
+Dictation-first voice-to-text for Linux/Hyprland, built on
+[hyprwhspr](https://github.com/goodroot/hyprwhspr). This repository is not an
+application or package. It is a reproducible configuration pattern:
+hotkey-triggered recording, streaming transcription, post-transcription LLM
+cleanup, and a calibration loop that improves vocabulary, style, and written
+prosody over time. Tap a hotkey, speak, tap again, and the cleaned-up text
+lands at your cursor about a second later.
 
 > **macOS counterpart:** [`scdenney/macwhspr`](https://github.com/scdenney/macwhspr)
 > ports this pipeline to Mac. Same `cleanup.py` prompt and `vocab.md` format,
 > same `/hypr-calibrate` loop; Karabiner-Elements + Hammerspoon + a Python
 > launchd daemon replace the Linux pieces. Triggered by the Globe/Fn key.
+
+[Why](#why-use-this-setup) · [Trade-offs](#trade-offs) · [Contents](#repository-contents) · [Install](#install) · [OpenAI API setup](#openai-api-setup) · [Local options](#local-transcription-option) · [Calibration](#calibration-loop) · [Known issues](#known-issues-and-fixes)
+
+---
 
 The current version of this setup uses the OpenAI API for both transcription and
 cleanup:
@@ -62,39 +74,61 @@ the transcription backend and the cleanup LLM need to be local.
 | `config/hyprwhspr.service` | Example systemd user service |
 | `claude/commands/hypr-calibrate.md` | Claude Code command for reviewing cleanup logs and updating `vocab.md` |
 
-## Install outline
+## Install
 
-Install hyprwhspr first by following the upstream project instructions. Then
-copy the files from this repository into the expected local locations:
+You need:
+
+- Linux with [Hyprland](https://hypr.land) (this setup is tested under
+  [Omarchy](https://omarchy.org))
+- [hyprwhspr](https://github.com/goodroot/hyprwhspr) installed and working,
+  following the upstream instructions
+- An [OpenAI API key](https://platform.openai.com/api-keys)
+
+Four steps: copy the files, fix two paths, add your key, start the service.
+
+### 1. Clone and copy the config into place
 
 ```bash
-mkdir -p ~/.config/hyprwhspr ~/.config/systemd/user ~/.claude/commands
+git clone https://github.com/scdenney/hyperwhspr
+cd hyperwhspr
 
+mkdir -p ~/.config/hyprwhspr ~/.config/systemd/user ~/.claude/commands
 cp config/config.json ~/.config/hyprwhspr/config.json
 cp config/cleanup.py ~/.config/hyprwhspr/cleanup.py
 cp config/vocab.md ~/.config/hyprwhspr/vocab.md
 cp config/hyprwhspr.service ~/.config/systemd/user/hyprwhspr.service
 cp claude/commands/hypr-calibrate.md ~/.claude/commands/hypr-calibrate.md
-
 chmod +x ~/.config/hyprwhspr/cleanup.py
 ```
 
-Edit `~/.config/hyprwhspr/config.json` and replace:
+### 2. Point two paths at your machine
+
+In `~/.config/hyprwhspr/config.json`, set the hook path to your real home
+directory:
 
 ```json
 "post_transcription_hook": "/home/YOUR_USER/.config/hyprwhspr/cleanup.py"
 ```
 
-with your real home directory path.
-
-Also edit the first line of `~/.config/hyprwhspr/cleanup.py` so it points to the
-Python interpreter used by hyprwhspr:
+In the first line of `~/.config/hyprwhspr/cleanup.py`, set the shebang to
+hyprwhspr's Python:
 
 ```python
 #!/home/YOUR_USER/.local/share/hyprwhspr/venv/bin/python
 ```
 
-Reload and start the service:
+### 3. Store your OpenAI API key and install the hook dependency
+
+```bash
+mkdir -p ~/.local/share/hyprwhspr
+chmod 700 ~/.local/share/hyprwhspr
+printf '{"openai":"YOUR_OPENAI_API_KEY"}\n' > ~/.local/share/hyprwhspr/credentials
+chmod 600 ~/.local/share/hyprwhspr/credentials
+
+~/.local/share/hyprwhspr/venv/bin/pip install httpx
+```
+
+### 4. Start the service
 
 ```bash
 systemctl --user daemon-reload
@@ -102,13 +136,39 @@ systemctl --user enable --now hyprwhspr
 systemctl --user status hyprwhspr
 ```
 
-Useful service commands:
+The status should read `active (running)`. Test it: focus any text field,
+tap the hyprwhspr hotkey (`SUPER+ALT+D` by default), speak a sentence, tap
+again. The cleaned-up text pastes at your cursor about a second after you
+stop. If nothing pastes, check the log with
+`journalctl --user -u hyprwhspr -f` and see
+[Known issues](#known-issues-and-fixes).
+
+Day-to-day service commands:
 
 ```bash
 systemctl --user restart hyprwhspr
 systemctl --user stop hyprwhspr
 journalctl --user -u hyprwhspr -f
 ```
+
+### Install with an agent
+
+The steps above are written so a coding agent can run them. Paste this into
+Claude Code or Codex:
+
+```text
+Install hyperwhspr from https://github.com/scdenney/hyperwhspr: clone the
+repo and follow the README's Install section. If upstream hyprwhspr is not
+installed, install it first from https://github.com/goodroot/hyprwhspr.
+Substitute my real home directory for the YOUR_USER placeholders in step 2.
+Skip the API key line in step 3; I will create the credentials file myself.
+Finish by running `systemctl --user status hyprwhspr` and showing me the
+result.
+```
+
+The agent handles the clone, file copies, path edits, dependency install, and
+service setup. Create the credentials file yourself (the `printf` line in
+step 3) so your API key never passes through the conversation.
 
 ## OpenAI API setup
 
@@ -117,17 +177,10 @@ The example config uses OpenAI's Realtime WebSocket transcription model,
 endpoints and the supported transcription models:
 <https://platform.openai.com/docs/guides/speech-to-text>.
 
-Store your API key outside git:
-
-```bash
-mkdir -p ~/.local/share/hyprwhspr
-chmod 700 ~/.local/share/hyprwhspr
-printf '{"openai":"YOUR_OPENAI_API_KEY"}\n' > ~/.local/share/hyprwhspr/credentials
-chmod 600 ~/.local/share/hyprwhspr/credentials
-```
-
-The same credentials file is used for both the `rest-api` and `realtime-ws`
-backends (the key is looked up by provider name, `openai`, not by backend).
+The API key lives in `~/.local/share/hyprwhspr/credentials` (created in
+[Install](#install) step 3, outside git). The same credentials file is used
+for both the `rest-api` and `realtime-ws` backends (the key is looked up by
+provider name, `openai`, not by backend).
 
 The relevant hyprwhspr config block is:
 
@@ -176,12 +229,7 @@ REST path, at a documented accuracy trade-off versus `gpt-4o-transcribe`.
 ### Cleanup model
 
 The cleanup hook defaults to `gpt-4.1-mini` through the OpenAI Chat Completions
-API. Install its Python dependency in the environment used by hyprwhspr:
-
-```bash
-~/.local/share/hyprwhspr/venv/bin/pip install httpx
-```
-
+API (its `httpx` dependency is installed in [Install](#install) step 3).
 You can override the cleanup model or endpoint with environment variables in the
 service file:
 
