@@ -1,6 +1,6 @@
 #!/home/YOUR_USER/.local/share/hyprwhspr/venv/bin/python
 """
-hyprwhspr post-transcription cleanup via GPT-4.1-mini.
+hyprwhspr post-transcription cleanup via gpt-5.4-mini.
 Uses httpx directly (79ms import) instead of the openai SDK (440ms import).
 Reads raw transcription from stdin, prints cleaned text to stdout.
 Logs (raw, cleaned) pairs to cleanup_log.jsonl for /hypr-calibrate sessions.
@@ -19,12 +19,20 @@ CREDENTIALS_FILE = Path.home() / '.local/share/hyprwhspr/credentials'
 VOCAB_FILE = Path.home() / '.config/hyprwhspr/vocab.md'
 LOG_FILE = Path.home() / '.config/hyprwhspr/cleanup_log.jsonl'
 CONFIG_FILE = Path.home() / '.config/hyprwhspr/config.json'
-MODEL = os.environ.get('HYPRWHSPR_CLEANUP_MODEL', 'gpt-4.1-mini')
+MODEL = os.environ.get('HYPRWHSPR_CLEANUP_MODEL', 'gpt-5.4-mini')
 API_URL = os.environ.get(
     'HYPRWHSPR_LLM_API_URL',
     'https://api.openai.com/v1/chat/completions',
 )
-TIMEOUT_SECONDS = float(os.environ.get('HYPRWHSPR_LLM_TIMEOUT', '4.0'))
+# Cleanup roundtrip ceiling. Crossing it pastes the raw transcript as one
+# unformatted blob, so leave headroom: the longest dictation in the log
+# (1,833 chars) cleans in ~1.6s, and 4s was tight enough to hit on a slow
+# network. Short cleanups still return in ~0.6s, so this only bounds the tail.
+TIMEOUT_SECONDS = float(os.environ.get('HYPRWHSPR_LLM_TIMEOUT', '12.0'))
+
+# Output ceiling. Cleanup rewrites the transcript in full, so this has to
+# comfortably exceed the longest dictation; 512 (~380 words) truncated emails.
+MAX_OUTPUT_TOKENS = int(os.environ.get('HYPRWHSPR_LLM_MAX_TOKENS', '4096'))
 
 SYSTEM_PROMPT = (
     "You are a text reformatter, not an assistant. Your only function is to take raw "
@@ -110,9 +118,16 @@ def clean(raw: str) -> str:
             {'role': 'system', 'content': SYSTEM_PROMPT + vocab_context()},
             {'role': 'user', 'content': raw},
         ],
-        'max_tokens': 512,
-        'temperature': 0.1,
     }
+    if MODEL.startswith('gpt-5'):
+        # The gpt-5 line renamed max_tokens and rejects temperature. Reasoning
+        # is off: this is a reformatting pass, and thinking tokens would land
+        # straight in the latency the user waits through.
+        payload['max_completion_tokens'] = MAX_OUTPUT_TOKENS
+        payload['reasoning_effort'] = 'none'
+    else:
+        payload['max_tokens'] = MAX_OUTPUT_TOKENS
+        payload['temperature'] = 0.1
     headers = {'Content-Type': 'application/json'}
     if key:
         headers['Authorization'] = f'Bearer {key}'

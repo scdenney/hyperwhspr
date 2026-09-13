@@ -36,7 +36,7 @@ ExecStopPost=/bin/bash -c 'pkill -9 -f "hyprwhspr-virtual-keyboard" 2>/dev/null 
 Environment=HYPRWHSPR_ROOT=/usr/lib/hyprwhspr
 Environment=PYTHONUNBUFFERED=1
 # Optional: point cleanup.py at OpenAI or a local OpenAI-compatible server.
-Environment=HYPRWHSPR_CLEANUP_MODEL=gpt-4.1-mini
+Environment=HYPRWHSPR_CLEANUP_MODEL=gpt-5.4-mini
 Environment=HYPRWHSPR_LLM_API_URL=https://api.openai.com/v1/chat/completions
 # Optional for local ONNX ASR with CUDA pip libraries. Replace YOUR_USER and
 # python3.14 with the paths used by your hyprwhspr virtual environment.
