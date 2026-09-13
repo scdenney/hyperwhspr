@@ -19,6 +19,14 @@ ExecStartPre=/bin/bash -c 'for i in $(seq 1 30); do ls /run/user/$(id -u)/waylan
 # would pass an empty value without this guard, leaving subprocesses (mic-osd,
 # wl-copy) unable to connect to the compositor.
 ExecStartPre=/bin/bash -c 'for i in $(seq 1 60); do systemctl --user show-environment 2>/dev/null | grep -q "^WAYLAND_DISPLAY=" && exit 0; sleep 0.5; done; echo "Warning: WAYLAND_DISPLAY not found in session env after 30s"'
+# Wait for DNS before starting when transcription goes over the network.
+# hyprwhspr connects to the transcription endpoint once at startup; if it loses
+# the race with DHCP/DNS it logs "Temporary failure in name resolution", marks
+# the backend dead, and only retries on the next record attempt — so the first
+# hotkey press after boot is spent reconnecting instead of recording. Skipped
+# for local backends (onnx-asr, pywhispercpp). Change the host if you point the
+# config at a provider other than OpenAI.
+ExecStartPre=/bin/bash -c 'C=%h/.config/hyprwhspr/config.json; grep -q realtime-ws $C || grep -q rest-api $C || exit 0; for i in $(seq 1 60); do getent hosts api.openai.com >/dev/null 2>&1 && exit 0; sleep 0.5; done; echo "Warning: api.openai.com did not resolve after 30s"'
 # Clean stale mic-osd PID file so the runner spawns a fresh daemon
 # instead of trying to signal a PID that was reused by another process
 ExecStartPre=/bin/rm -f %h/.config/hyprwhspr/mic_osd.pid
