@@ -1,0 +1,11 @@
+[Unit]
+Description=hyprwhspr audio stack watchdog (heals wireplumber GWeakRef stall)
+After=hyprwhspr.service
+
+[Service]
+ExecStart=%h/.config/hyprwhspr/audio_watchdog.sh
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
