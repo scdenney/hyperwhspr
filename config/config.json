@@ -67,5 +67,8 @@
   "start_sound_volume": 1.0,
   "stop_sound_volume": 1.0,
   "start_sound_path": "ping-up.ogg",
-  "stop_sound_path": "ping-down.ogg"
+  "stop_sound_path": "ping-down.ogg",
+  "short_transcript_min_seconds": 15,
+  "short_transcript_min_cps": 8,
+  "keep_last_recording": false
 }
